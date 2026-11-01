@@ -1,0 +1,8 @@
+.env
+target/
+upgrade-backup-*/
+*.global-backup
+*.before-global-trains
+*154=
+services/movement-authority-service/tests/authority_flow.rs154=
+node_modules/ 

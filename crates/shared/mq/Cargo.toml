@@ -1,0 +1,19 @@
+[package]
+name = "cbtc-mq"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cbtc-config = { workspace = true }
+cbtc-errors = { workspace = true }
+cbtc-events = { workspace = true }
+cbtc-ptdf = { workspace = true }
+lapin = { workspace = true }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+rand = { workspace = true }
+uuid.workspace = true

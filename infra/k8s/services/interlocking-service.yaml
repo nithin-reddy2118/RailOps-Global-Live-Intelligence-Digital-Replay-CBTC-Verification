@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interlocking-service
+  namespace: cbtc-platform
+  labels: { app: interlocking-service }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: interlocking-service }
+  template:
+    metadata:
+      labels: { app: interlocking-service }
+    spec:
+      containers:
+        - name: interlocking-service
+          image: cbtc/interlocking-service:latest
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: cbtc-config }
+          env:
+            - name: CBTC__AUTH__JWT_SECRET
+              valueFrom: { secretKeyRef: { name: cbtc-secrets, key: jwt-secret } }
+            - name: INTERLOCKING_SERVICE_TOKEN
+              valueFrom: { secretKeyRef: { name: cbtc-secrets, key: interlocking-service-token } }
+          readinessProbe:
+            httpGet: { path: /ready, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "200m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: interlocking-service
+  namespace: cbtc-platform
+spec:
+  selector: { app: interlocking-service }
+  ports: [{ port: 8080, targetPort: 8080 }]

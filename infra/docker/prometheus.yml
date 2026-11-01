@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: auth-service
+    static_configs: [{ targets: ["auth-service:8080"] }]
+  - job_name: train-service
+    static_configs: [{ targets: ["train-service:8080"] }]
+  - job_name: block-occupancy-service
+    static_configs: [{ targets: ["block-occupancy-service:8080"] }]
+  - job_name: movement-authority-service
+    static_configs: [{ targets: ["movement-authority-service:8080"] }]
+  - job_name: interlocking-service
+    static_configs: [{ targets: ["interlocking-service:8080"] }]
+  - job_name: wayside-unit-service
+    static_configs: [{ targets: ["wayside-unit-service:8080"] }]
+  - job_name: passenger-info-service
+    static_configs: [{ targets: ["passenger-info-service:8080"] }]
+  - job_name: maintenance-service
+    static_configs: [{ targets: ["maintenance-service:8080"] }]
+  - job_name: notification-service
+    static_configs: [{ targets: ["notification-service:8080"] }]
+  - job_name: telemetry-service
+    static_configs: [{ targets: ["telemetry-service:8080"] }]
+  - job_name: audit-log-service
+    static_configs: [{ targets: ["audit-log-service:8080"] }]
+  - job_name: comms-gateway
+    static_configs: [{ targets: ["comms-gateway:8080"] }]
+  - job_name: central-control-service
+    static_configs: [{ targets: ["central-control-service:8080"] }]
+  - job_name: dashboard-backend
+    static_configs: [{ targets: ["dashboard-backend:8080"] }]
+  - job_name: api-gateway
+    static_configs: [{ targets: ["api-gateway:8080"] }]

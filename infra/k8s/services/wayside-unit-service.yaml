@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wayside-unit-service
+  namespace: cbtc-platform
+  labels: { app: wayside-unit-service }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: wayside-unit-service }
+  template:
+    metadata:
+      labels: { app: wayside-unit-service }
+    spec:
+      containers:
+        - name: wayside-unit-service
+          image: cbtc/wayside-unit-service:latest
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: cbtc-config }
+          env:
+            - name: CBTC__AUTH__JWT_SECRET
+              valueFrom: { secretKeyRef: { name: cbtc-secrets, key: jwt-secret } }
+          readinessProbe:
+            httpGet: { path: /ready, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wayside-unit-service
+  namespace: cbtc-platform
+spec:
+  selector: { app: wayside-unit-service }
+  ports: [{ port: 8080, targetPort: 8080 }]

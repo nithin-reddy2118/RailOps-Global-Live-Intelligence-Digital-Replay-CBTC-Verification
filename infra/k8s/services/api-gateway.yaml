@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: cbtc-platform
+  labels: { app: api-gateway }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: api-gateway }
+  template:
+    metadata:
+      labels: { app: api-gateway }
+    spec:
+      containers:
+        - name: api-gateway
+          image: cbtc/api-gateway:latest
+          ports: [{ containerPort: 8080 }]
+          env:
+            - { name: SERVER_HOST, value: "0.0.0.0" }
+            - { name: SERVER_PORT, value: "8080" }
+            - name: GATEWAY_RATE_LIMIT_RPS
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: GATEWAY_RATE_LIMIT_RPS } }
+            - name: AUTH_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: AUTH_SERVICE_URL } }
+            - name: TRAIN_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: TRAIN_SERVICE_URL } }
+            - name: BLOCK_OCCUPANCY_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: BLOCK_OCCUPANCY_SERVICE_URL } }
+            - name: MOVEMENT_AUTHORITY_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: MOVEMENT_AUTHORITY_SERVICE_URL } }
+            - name: INTERLOCKING_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: INTERLOCKING_SERVICE_URL } }
+            - name: WAYSIDE_UNIT_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: WAYSIDE_UNIT_SERVICE_URL } }
+            - name: PASSENGER_INFO_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: PASSENGER_INFO_SERVICE_URL } }
+            - name: MAINTENANCE_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: MAINTENANCE_SERVICE_URL } }
+            - name: NOTIFICATION_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: NOTIFICATION_SERVICE_URL } }
+            - name: TELEMETRY_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: TELEMETRY_SERVICE_URL } }
+            - name: AUDIT_LOG_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: AUDIT_LOG_SERVICE_URL } }
+            - name: COMMS_GATEWAY_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: COMMS_GATEWAY_URL } }
+            - name: CENTRAL_CONTROL_SERVICE_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: CENTRAL_CONTROL_SERVICE_URL } }
+            - name: DASHBOARD_BACKEND_URL
+              valueFrom: { configMapKeyRef: { name: cbtc-config, key: DASHBOARD_BACKEND_URL } }
+          readinessProbe:
+            httpGet: { path: /ready, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "200m", memory: "128Mi" }
+            limits: { cpu: "1", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: cbtc-platform
+spec:
+  type: LoadBalancer
+  selector: { app: api-gateway }
+  ports: [{ port: 80, targetPort: 8080 }]

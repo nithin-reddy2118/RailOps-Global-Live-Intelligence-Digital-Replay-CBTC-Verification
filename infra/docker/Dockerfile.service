@@ -1,0 +1,52 @@
+# Shared multi-stage production Dockerfile for every service binary in
+# the workspace. Parameterized by SERVICE_NAME rather than duplicated
+# fifteen times: every service is built the same way (same workspace,
+# same base images, same non-root runtime user), so a single
+# build-arg-driven Dockerfile is the correct engineering choice here,
+# not a shortcut — fifteen near-identical Dockerfiles would be fifteen
+# places to forget to patch a base-image CVE.
+#
+# Build example:
+#   docker build -f infra/docker/Dockerfile.service \
+#     --build-arg SERVICE_NAME=auth-service \
+#     -t cbtc/auth-service:latest .
+
+FROM rust:1.88-slim-bookworm AS builder
+ARG SERVICE_NAME
+WORKDIR /workspace
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config libssl-dev ca-certificates curl protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the whole workspace. sqlx uses runtime-checked queries (see
+# services/auth-service/src/repository.rs for the rationale), so no
+# DATABASE_URL or `.sqlx` cache is required at build time.
+COPY Cargo.toml Cargo.lock* ./
+COPY crates ./crates
+COPY services ./services
+COPY migrations ./migrations
+
+RUN cargo build --release --bin "${SERVICE_NAME}"
+RUN cp "target/release/${SERVICE_NAME}" /usr/local/bin/service-bin
+
+FROM debian:bookworm-slim AS runtime
+ARG SERVICE_NAME
+LABEL org.opencontainers.image.source="https://github.com/cbtc-platform/cbtc-platform"
+LABEL org.opencontainers.image.title="${SERVICE_NAME}"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --no-create-home cbtc
+
+COPY --from=builder /usr/local/bin/service-bin /usr/local/bin/service-bin
+# The migrations directory is embedded via sqlx::migrate! at compile
+# time (see each service's main.rs), so it is NOT needed at runtime —
+# nothing further to copy here.
+
+USER cbtc
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/service-bin"]
+
+

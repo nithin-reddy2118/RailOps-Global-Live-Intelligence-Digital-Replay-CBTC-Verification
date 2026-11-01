@@ -1,0 +1,119 @@
+﻿import type { ReactNode } from "react";
+
+type MapTrain = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  status: "LIVE" | "PREDICTED" | "SCHEDULED" | "LAST KNOWN";
+  speed: number;
+  destination: string;
+};
+
+const WORLD_TRAINS: MapTrain[] = [
+  { id: "demo-001", name: "Demo 12345", lat: 12.9716, lon: 77.5946, status: "LIVE", speed: 82, destination: "Chennai" },
+  { id: "demo-002", name: "Metro 204", lat: 51.5074, lon: -0.1278, status: "PREDICTED", speed: 54, destination: "London" },
+  { id: "demo-003", name: "Express 77", lat: 35.6762, lon: 139.6503, status: "SCHEDULED", speed: 0, destination: "Tokyo" },
+  { id: "demo-004", name: "Rail 902", lat: 40.7128, lon: -74.006, status: "LAST KNOWN", speed: 71, destination: "New York" },
+  { id: "demo-005", name: "TGV 611", lat: 48.8566, lon: 2.3522, status: "LIVE", speed: 214, destination: "Paris" },
+  { id: "demo-006", name: "ICE 48", lat: 52.52, lon: 13.405, status: "LIVE", speed: 168, destination: "Berlin" },
+];
+
+function project(lat: number, lon: number) {
+  const x = ((lon + 180) / 360) * 100;
+  const y = ((90 - lat) / 180) * 100;
+  return { left: `${x}%`, top: `${y}%` };
+}
+
+function TrainMarker({ train }: { train: MapTrain }) {
+  const position = project(train.lat, train.lon);
+
+  return (
+    <button
+      className={`global-train-marker ${train.status.toLowerCase().replace(" ", "-")}`}
+      style={position}
+      title={`${train.name} · ${train.status}`}
+    >
+      <span className="global-train-dot" />
+      <span className="global-train-label">{train.name}</span>
+    </button>
+  );
+}
+
+function GridLines(): ReactNode {
+  return (
+    <>
+      {Array.from({ length: 7 }, (_, index) => (
+        <span
+          className="map-grid-line latitude"
+          key={`lat-${index}`}
+          style={{ top: `${(index + 1) * 12.5}%` }}
+        />
+      ))}
+      {Array.from({ length: 11 }, (_, index) => (
+        <span
+          className="map-grid-line longitude"
+          key={`lon-${index}`}
+          style={{ left: `${(index + 1) * 7.7}%` }}
+        />
+      ))}
+    </>
+  );
+}
+
+export function GlobalMap() {
+  return (
+    <section className="global-map-panel panel">
+      <div className="global-map-header">
+        <div>
+          <span className="eyebrow">GLOBAL RAILWAY INTELLIGENCE</span>
+          <h2>World Railway Map</h2>
+          <p>Unified view of trains, networks, infrastructure and operational intelligence.</p>
+        </div>
+
+        <div className="global-map-controls">
+          <button className="map-control active">All</button>
+          <button className="map-control">Passenger</button>
+          <button className="map-control">Metro</button>
+          <button className="map-control">Freight</button>
+        </div>
+      </div>
+
+      <div className="global-map">
+        <div className="map-ocean">
+          <GridLines />
+
+          <div className="continent continent-north-america" />
+          <div className="continent continent-south-america" />
+          <div className="continent continent-europe" />
+          <div className="continent continent-africa" />
+          <div className="continent continent-asia" />
+          <div className="continent continent-australia" />
+
+          <div className="rail-route route-europe-asia" />
+          <div className="rail-route route-india" />
+          <div className="rail-route route-north-america" />
+
+          {WORLD_TRAINS.map((train) => (
+            <TrainMarker key={train.id} train={train} />
+          ))}
+
+          <div className="map-attribution">Illustrative coverage · live connectors will replace demo positions</div>
+        </div>
+
+        <div className="map-overlay map-status">
+          <strong>NETWORK COVERAGE</strong>
+          <span>6 tracked demonstrations</span>
+          <span>Global connector architecture</span>
+        </div>
+
+        <div className="map-overlay map-legend-global">
+          <span><i className="legend-live" /> LIVE</span>
+          <span><i className="legend-predicted" /> PREDICTED</span>
+          <span><i className="legend-scheduled" /> SCHEDULED</span>
+          <span><i className="legend-last-known" /> LAST KNOWN</span>
+        </div>
+      </div>
+    </section>
+  );
+}

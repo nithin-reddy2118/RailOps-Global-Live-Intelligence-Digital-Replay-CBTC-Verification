@@ -1,0 +1,13 @@
+[package]
+name = "cbtc-testkit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cbtc-domain = { workspace = true }
+cbtc-config = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }

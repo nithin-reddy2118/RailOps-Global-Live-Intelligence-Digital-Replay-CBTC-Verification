@@ -1,0 +1,92 @@
+import { useEffect, useMemo, useState } from "react";
+import { fetchReplayEvents, fetchReplayRuns, fetchSnapshot, login, startReplayRun, stopReplayRun, verifyReplayRun } from "./api";
+import { applyEvent } from "./eventReducer";
+import { AlertsPanel, AuthorityPanel, EventLogPanel, ServicePanel, SignalsPanel, SwitchesPanel, TrainsPanel } from "./Panels";
+import { TrackMap } from "./TrackMap";
+import type { NetworkOverview, ReplayEvent, ReplayRun, VerificationResult } from "./types";
+import { useEventStream } from "./useEventStream";
+
+const SNAPSHOT_REFRESH_MS = 15000;
+type View = "dashboard" | "replay";
+
+export default function App() {
+  const [view, setView] = useState<View>("dashboard");
+  const [overview, setOverview] = useState<NetworkOverview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { events, connected } = useEventStream();
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() { try { const snapshot = await fetchSnapshot(); if (!cancelled) { setOverview(snapshot); setError(null); } } catch (e) { if (!cancelled) setError(e instanceof Error ? e.message : "failed to load snapshot"); } }
+    load(); const interval = setInterval(load, SNAPSHOT_REFRESH_MS); return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  useEffect(() => { if (events.length) setOverview(prev => prev ? applyEvent(prev, events[0]) : prev); }, [events]);
+
+  const activeTrains = useMemo(() => overview?.trains.filter(t => t.operational_state !== "communication_lost").length ?? 0, [overview]);
+  const activeAlerts = overview?.unacknowledged_alerts.length ?? 0;
+
+  return <div className="shell">
+    <aside className="sidebar">
+      <div className="brand"><div className="brand-mark">▣</div><div><strong>CBTC Platform</strong><span>Secure · Reliable · Intelligent</span></div></div>
+      <nav>
+        <NavItem icon="▦" label="Dashboard" active={view === "dashboard"} onClick={() => setView("dashboard")} />
+        <NavItem icon="⌁" label="Track Map" /><NavItem icon="▣" label="Trains" /><NavItem icon="◉" label="Signals" /><NavItem icon="◇" label="Switches" /><NavItem icon="◈" label="Authorities" /><NavItem icon="△" label="Events" />
+        <NavItem icon="!" label="Alerts" badge={activeAlerts} />
+        <NavItem icon="↻" label="Recording / Replay" active={view === "replay"} onClick={() => setView("replay")} />
+        <NavItem icon="▤" label="Reports" /><NavItem icon="⚙" label="Settings" />
+      </nav>
+      <div className="sidebar-footer"><span className="online-dot" /> System operational</div>
+    </aside>
+
+    <main className="main">
+      <header className="topbar"><div><span className="eyebrow">CONTROL CENTER</span><h1>{view === "dashboard" ? "Network Overview" : "Recording / Replay"}</h1></div><div className="topbar-right"><span className="system-state"><i className="online-dot" /> System Online</span><span className="bell">♧<b>{activeAlerts}</b></span><div className="user"><div className="avatar">A</div><div><strong>admin</strong><span>Control Center</span></div></div></div></header>
+      {error && <div className="global-error">{error}</div>}
+      {view === "dashboard" ? <DashboardView overview={overview} events={events} connected={connected} activeTrains={activeTrains} /> : <ReplayView />}
+    </main>
+  </div>;
+}
+
+function DashboardView({ overview, events, connected, activeTrains }: { overview: NetworkOverview | null; events: ReturnType<typeof useEventStream>["events"]; connected: boolean; activeTrains: number }) {
+  if (!overview) return <div className="loading-card">Loading network state…</div>;
+  return <div className="dashboard-content">
+    <section className="overview-strip"><Metric icon="▣" label="Trains" value={`${activeTrains} / ${overview.trains.length}`} note="Active / Total" blue /><Metric icon="◉" label="Signals" value={`${overview.signals.length} / ${overview.signals.length}`} note="On / Total" green /><Metric icon="◇" label="Switches" value={`${overview.switches.filter(s => !s.locked).length} / ${overview.switches.length}`} note="Normal / Total" purple /><Metric icon="△" label="Active Alerts" value={String(overview.unacknowledged_alerts.length)} note="Requires Attention" red /></section>
+    <section className="panel map-panel"><div className="panel-title"><h3>Track Map</h3><span className="timestamp">{new Date(overview.generated_at).toLocaleString()}</span></div><TrackMap blocks={overview.blocks} trains={overview.trains} /></section>
+    <div className="three-col"><TrainsPanel trains={overview.trains} /><AlertsPanel alerts={overview.unacknowledged_alerts} /></div>
+    <div className="three-col equal"><SignalsPanel signals={overview.signals} /><SwitchesPanel switches={overview.switches} /><AuthorityPanel authorities={overview.active_authorities} /></div>
+    <div className="three-col lower"><EventLogPanel events={events} connected={connected} /><ServicePanel connected={connected} /><div className="panel mini-map"><div className="panel-title"><h3>Live Track View (Mini)</h3></div><div className="mini-track"><span className="mini-train blue">T-001</span><span className="mini-train yellow">T-003</span><i /><i /><i /><i /></div></div></div>
+  </div>;
+}
+
+function ReplayView() {
+  const [token, setToken] = useState(() => localStorage.getItem("cbtc_admin_token") ?? "");
+  const [runs, setRuns] = useState<ReplayRun[]>([]); const [selected, setSelected] = useState<ReplayRun | null>(null); const [events, setEvents] = useState<ReplayEvent[]>([]); const [verification, setVerification] = useState<VerificationResult | null>(null); const [playing, setPlaying] = useState(false); const [cursor, setCursor] = useState(0); const [label, setLabel] = useState("Demo recording"); const [busy, setBusy] = useState(false); const [message, setMessage] = useState("");
+  const [loginOpen, setLoginOpen] = useState(!token);
+
+  async function refreshRuns() { if (!token) return; try { setRuns(await fetchReplayRuns(token)); setMessage(""); } catch (e) { if ((e as Error & { status?: number }).status === 401) { setLoginOpen(true); } else setMessage((e as Error).message); } }
+  useEffect(() => { refreshRuns(); }, [token]);
+  useEffect(() => { if (!playing || !events.length) return; const timer = setInterval(() => setCursor(c => { if (c >= events.length - 1) { setPlaying(false); return c; } return c + 1; }), 700); return () => clearInterval(timer); }, [playing, events.length]);
+
+  async function chooseRun(run: ReplayRun) { setSelected(run); setVerification(null); setCursor(0); if (!token) return; setEvents(await fetchReplayEvents(run.id, token)); }
+  async function createRun() { if (!token) { setLoginOpen(true); return; } setBusy(true); try { const run = await startReplayRun(label, token); setRuns(prev => [run, ...prev]); setSelected(run); setEvents([]); setMessage("Recording started. Events will appear as they cross the dashboard event stream."); } catch (e) { setMessage((e as Error).message); } finally { setBusy(false); } }
+  async function stopRun() { if (!selected || !token) return; setBusy(true); try { const run = await stopReplayRun(selected.id, token); setSelected(run); await refreshRuns(); setMessage("Recording stopped."); } catch (e) { setMessage((e as Error).message); } finally { setBusy(false); } }
+  async function verify() { if (!selected || !token) return; setBusy(true); try { setVerification(await verifyReplayRun(selected.id, token)); } catch (e) { setMessage((e as Error).message); } finally { setBusy(false); } }
+
+  return <div className="replay-page">
+    <div className="replay-toolbar"><div><span className="eyebrow">PRODUCTION-TIME DETERMINISTIC FORENSICS</span><h2>Recording / Replay</h2><p>Capture platform events, inspect the recorded sequence, replay it visually, and verify trace integrity.</p></div><div className="replay-actions"><input value={label} onChange={e => setLabel(e.target.value)} placeholder="Recording label" /><button className="primary" onClick={createRun} disabled={busy}>● Start Recording</button>{selected?.active && <button className="danger" onClick={stopRun} disabled={busy}>■ Stop</button>}</div></div>
+    {message && <div className="replay-message">{message}</div>}
+    {!token && <div className="auth-card"><h3>Administrator access required</h3><p>Replay and verification are protected because traces can contain operational event data.</p><button className="primary" onClick={() => setLoginOpen(true)}>Sign in as admin</button></div>}
+    <div className="replay-layout">
+      <section className="panel session-panel"><div className="panel-title"><h3>Recording Sessions</h3><span>{runs.length} sessions</span></div>{runs.map(run => <button className={`session-row ${selected?.id === run.id ? "selected" : ""}`} key={run.id} onClick={() => chooseRun(run)}><span className="session-icon">↻</span><span><strong>{run.label}</strong><small>{new Date(run.started_at).toLocaleString()}</small></span><span className="session-meta"><b>{run.event_count}</b><small>{run.status}</small></span></button>)}{!runs.length && <div className="empty">No recordings yet.</div>}</section>
+      <section className="panel replay-stage"><div className="panel-title"><h3>{selected ? selected.label : "Select a recording"}</h3>{selected && <span className={`status-badge ${selected.status}`}>{selected.status}</span>}</div>{selected ? <><div className="replay-controls"><button onClick={() => setCursor(Math.max(0, cursor - 1))}>◀</button><button className="play" onClick={() => setPlaying(p => !p)}>{playing ? "Ⅱ" : "▶"}</button><button onClick={() => setCursor(Math.min(Math.max(0, events.length - 1), cursor + 1))}>▶</button><span className="replay-position">Event {events.length ? cursor + 1 : 0} / {events.length}</span><button className="verify" onClick={verify} disabled={busy}>✓ Verify Trace</button></div><input className="timeline" type="range" min="0" max={Math.max(0, events.length - 1)} value={Math.min(cursor, Math.max(0, events.length - 1))} onChange={e => setCursor(Number(e.target.value))} /><div className="replay-summary"><MetricSmall label="Events" value={String(events.length)} /><MetricSmall label="Duration" value={selected.ended_at ? formatDuration(new Date(selected.started_at), new Date(selected.ended_at)) : "Live"} /><MetricSmall label="Verification" value={verification?.status ?? "Not run"} /></div><div className="replay-grid"><div><h4>Event Timeline</h4><div className="timeline-list">{events.map((event, index) => <button className={`timeline-row ${index === cursor ? "current" : ""}`} key={`${event.sequence}-${event.event_id}`} onClick={() => setCursor(index)}><span>{event.sequence}</span><span>{new Date(event.recorded_at).toLocaleTimeString()}</span><span>{event.origin_service}</span><strong>{event.event_type}</strong></button>)}{!events.length && <div className="empty">No events captured for this session yet.</div>}</div></div><div className="event-inspector"><h4>Event Inspector</h4>{events[cursor] ? <><div className="inspector-meta"><span>Sequence <b>{events[cursor].sequence}</b></span><span>Service <b>{events[cursor].origin_service}</b></span><span>Event ID <b>{events[cursor].event_id.slice(0, 12)}…</b></span></div><pre>{JSON.stringify(events[cursor].payload, null, 2)}</pre></> : <div className="empty">Select an event to inspect its payload.</div>}</div></div>{verification && <VerificationCard result={verification} />}</> : <div className="empty large">Choose a session from the left to begin replay.</div>}</section>
+    </div>
+    {loginOpen && <LoginModal onSuccess={t => { localStorage.setItem("cbtc_admin_token", t); setToken(t); setLoginOpen(false); }} onClose={() => setLoginOpen(false)} />}
+  </div>;
+}
+
+function LoginModal({ onSuccess, onClose }: { onSuccess: (token: string) => void; onClose: () => void }) { const [username, setUsername] = useState("admin"); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); return <div className="modal-backdrop"><form className="login-modal" onSubmit={async e => { e.preventDefault(); setBusy(true); setError(""); try { onSuccess(await login(username, password)); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }}><div className="brand-mark">▣</div><h2>Control Center Sign In</h2><p>Administrator credentials are required for Recording / Replay.</p><label>Username<input value={username} onChange={e => setUsername(e.target.value)} /></label><label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} autoFocus /></label>{error && <div className="login-error">{error}</div>}<div className="modal-actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button></div></form></div>; }
+function VerificationCard({ result }: { result: VerificationResult }) { return <div className={`verification-card ${result.status === "PASS" ? "pass" : "fail"}`}><div><span className="eyebrow">DETERMINISTIC TRACE VERIFICATION</span><h3>{result.status === "PASS" ? "Trace verified" : "Divergence detected"}</h3><p>Mode: {result.mode} · {result.event_count} events inspected</p></div><strong>{result.status}</strong>{result.issues.length > 0 && <ul>{result.issues.slice(0, 8).map((issue, i) => <li key={i}><b>{issue.code}</b> — {issue.message}</li>)}</ul>}</div>; }
+function Metric({ icon, label, value, note, blue, green, purple, red }: { icon: string; label: string; value: string; note: string; blue?: boolean; green?: boolean; purple?: boolean; red?: boolean }) { return <div className={`metric ${blue ? "blue" : green ? "green" : purple ? "purple" : red ? "red" : ""}`}><div className="metric-icon">{icon}</div><div><span>{label}</span><strong>{value}</strong><small>{note}</small></div></div>; }
+function MetricSmall({ label, value }: { label: string; value: string }) { return <div><span>{label}</span><strong>{value}</strong></div>; }
+function NavItem({ icon, label, active, badge, onClick }: { icon: string; label: string; active?: boolean; badge?: number; onClick?: () => void }) { return <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}><span className="nav-icon">{icon}</span>{label}{badge ? <b>{badge}</b> : null}</button>; }
+function formatDuration(start: Date, end: Date) { const seconds = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000)); const h = Math.floor(seconds / 3600); const m = Math.floor((seconds % 3600) / 60); const s = seconds % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`; }

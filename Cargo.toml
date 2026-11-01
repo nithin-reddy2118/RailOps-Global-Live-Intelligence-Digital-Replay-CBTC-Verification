@@ -1,0 +1,100 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/shared/domain",
+    "crates/shared/errors",
+    "crates/shared/events",
+    "crates/shared/db",
+    "crates/shared/auth",
+    "crates/shared/observability",
+    "crates/shared/mq",
+    "crates/shared/config",
+    "crates/shared/ptdf",
+    "crates/testkit",
+    "services/api-gateway",
+    "services/auth-service",
+    "services/train-service",
+    "services/wayside-unit-service",
+    "services/movement-authority-service",
+    "services/block-occupancy-service",
+    "services/interlocking-service",
+    "services/central-control-service",
+    "services/passenger-info-service",
+    "services/maintenance-service",
+    "services/notification-service",
+    "services/telemetry-service",
+    "services/audit-log-service",
+    "services/comms-gateway",
+    "services/dashboard-backend",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["CBTC Platform Engineering"]
+
+[workspace.dependencies]
+# --- shared internal crates ---
+cbtc-domain = { path = "crates/shared/domain" }
+cbtc-errors = { path = "crates/shared/errors" }
+cbtc-events = { path = "crates/shared/events" }
+cbtc-db = { path = "crates/shared/db" }
+cbtc-auth = { path = "crates/shared/auth" }
+cbtc-observability = { path = "crates/shared/observability" }
+cbtc-mq = { path = "crates/shared/mq" }
+cbtc-config = { path = "crates/shared/config" }
+cbtc-ptdf = { path = "crates/shared/ptdf" }
+cbtc-testkit = { path = "crates/testkit" }
+
+# --- async runtime / web ---
+tokio = { version = "1.40", features = ["full"] }
+axum = { version = "0.7", features = ["json", "macros", "ws"] }
+tower = { version = "0.5", features = ["full"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "compression-full", "timeout", "limit"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# --- serialization ---
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# --- database ---
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
+lapin = "2.5"
+
+# --- auth ---
+jsonwebtoken = "9.3"
+argon2 = "0.5"
+
+# --- config / env ---
+dotenvy = "0.15"
+config = "0.14"
+
+# --- logging / metrics ---
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+metrics = "0.23"
+metrics-exporter-prometheus = "0.15"
+
+# --- openapi ---
+utoipa = { version = "5.2", features = ["axum_extras", "uuid", "chrono"] }
+utoipa-swagger-ui = { version = "8.0", features = ["axum"] }
+
+# --- ids / time / misc ---
+uuid = { version = "1.10", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1.0"
+anyhow = "1.0"
+async-trait = "0.1"
+validator = { version = "0.18", features = ["derive"] }
+rand = "0.8"
+futures = "0.3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+debug = 1

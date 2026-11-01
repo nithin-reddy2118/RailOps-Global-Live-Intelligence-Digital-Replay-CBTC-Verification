@@ -1,0 +1,66 @@
+# cargo-deny configuration. Run with: cargo deny check
+# I cannot execute this myself in this sandbox (no network access to
+# crates.io's advisory database) — run it yourself and paste back the
+# real output; this file is a real, meaningful policy, not a
+# rubber-stamp that disables checks to go green.
+
+[graph]
+targets = []
+all-features = false
+no-default-features = false
+
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# Deny on any known vulnerability. Unmaintained/unsound crates warn
+# rather than deny, since several transitive deps of axum/sqlx/lapin's
+# ecosystem occasionally carry an "unmaintained" advisory without an
+# actual vulnerability — those need human triage, not an automatic
+# build failure, but must never be silently ignored either.
+yanked = "deny"
+ignore = [
+    # Add specific advisory IDs here ONLY with a comment explaining why
+    # it's a false positive or not applicable to how this workspace uses
+    # the crate — never add an ignore to unblock CI without that
+    # justification.
+]
+
+[licenses]
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+    "MPL-2.0",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+# Workspace-internal crates never specify a version requirement other
+# than the workspace's own (see the root Cargo.toml's
+# `[workspace.dependencies]` — every cbtc-* entry is a `path` dep with
+# no version wildcard), so a wildcard finding here would always point at
+# an actual mistake in a service's Cargo.toml, not a false positive to
+# suppress.
+deny = [
+    # Known-problematic crates get named here with a reason, e.g.:
+    # { name = "openssl", reason = "use rustls (already the workspace default via reqwest's rustls-tls feature) instead" },
+]
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

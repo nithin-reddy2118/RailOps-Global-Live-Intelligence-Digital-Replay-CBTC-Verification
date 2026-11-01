@@ -1,0 +1,27 @@
+[package]
+name = "api-gateway"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "api_gateway"
+path = "src/lib.rs"
+
+[[bin]]
+name = "api-gateway"
+path = "src/main.rs"
+
+[dependencies]
+cbtc-errors = { workspace = true }
+cbtc-observability = { workspace = true }
+cbtc-config = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }

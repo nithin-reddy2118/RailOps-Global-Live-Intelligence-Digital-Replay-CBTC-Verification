@@ -1,0 +1,132 @@
+﻿import { useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+type MapTrain = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  status: "LIVE" | "PREDICTED" | "SCHEDULED" | "LAST KNOWN";
+  speed: number;
+  destination: string;
+};
+
+const WORLD_TRAINS: MapTrain[] = [
+  { id: "demo-001", name: "Demo 12345", lat: 12.9716, lon: 77.5946, status: "LIVE", speed: 82, destination: "Chennai" },
+  { id: "demo-002", name: "Metro 204", lat: 51.5074, lon: -0.1278, status: "PREDICTED", speed: 54, destination: "London" },
+  { id: "demo-003", name: "Express 77", lat: 35.6762, lon: 139.6503, status: "SCHEDULED", speed: 0, destination: "Tokyo" },
+  { id: "demo-004", name: "Rail 902", lat: 40.7128, lon: -74.006, status: "LAST KNOWN", speed: 71, destination: "New York" },
+  { id: "demo-005", name: "TGV 611", lat: 48.8566, lon: 2.3522, status: "LIVE", speed: 214, destination: "Paris" },
+  { id: "demo-006", name: "ICE 48", lat: 52.52, lon: 13.405, status: "LIVE", speed: 168, destination: "Berlin" },
+];
+
+function markerIcon(status: MapTrain["status"]) {
+  const className = status.toLowerCase().replace(" ", "-");
+
+  return L.divIcon({
+    className: "railway-map-marker-wrapper",
+    html: `<div class="railway-map-marker ${className}">
+      <span class="railway-map-marker-dot"></span>
+    </div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -10],
+  });
+}
+
+function FitWorld() {
+  const map = useMap();
+
+  return (
+    <button
+      className="leaflet-world-button"
+      onClick={() => map.setView([20, 0], 2)}
+      type="button"
+    >
+      World
+    </button>
+  );
+}
+
+export function GlobalMap() {
+  const [filter, setFilter] = useState<"All" | "Passenger" | "Metro" | "Freight">("All");
+
+  const visibleTrains = WORLD_TRAINS.filter(() => filter === "All");
+
+  return (
+    <section className="global-map-panel panel">
+      <div className="global-map-header">
+        <div>
+          <span className="eyebrow">GLOBAL RAILWAY INTELLIGENCE</span>
+          <h2>World Railway Map</h2>
+          <p>Live geographic view of trains, networks, infrastructure and operational intelligence.</p>
+        </div>
+
+        <div className="global-map-controls">
+          {(["All", "Passenger", "Metro", "Freight"] as const).map((item) => (
+            <button
+              key={item}
+              className={`map-control ${filter === item ? "active" : ""}`}
+              onClick={() => setFilter(item)}
+              type="button"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="global-map">
+        <MapContainer
+          center={[20, 0]}
+          zoom={2}
+          minZoom={2}
+          maxZoom={18}
+          worldCopyJump
+          scrollWheelZoom
+          className="railway-leaflet-map"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+
+          <FitWorld />
+
+          {visibleTrains.map((train) => (
+            <Marker
+              key={train.id}
+              position={[train.lat, train.lon]}
+              icon={markerIcon(train.status)}
+            >
+              <Popup>
+                <div className="train-popup">
+                  <strong>{train.name}</strong>
+                  <span>Status: {train.status}</span>
+                  <span>Speed: {train.speed} km/h</span>
+                  <span>Destination: {train.destination}</span>
+                  <span>Source: Demonstration data</span>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+
+        <div className="map-overlay map-status">
+          <strong>NETWORK COVERAGE</strong>
+          <span>{visibleTrains.length} tracked demonstrations</span>
+          <span>Global connector architecture</span>
+        </div>
+
+        <div className="map-overlay map-legend-global">
+          <span><i className="legend-live" /> LIVE</span>
+          <span><i className="legend-predicted" /> PREDICTED</span>
+          <span><i className="legend-scheduled" /> SCHEDULED</span>
+          <span><i className="legend-last-known" /> LAST KNOWN</span>
+        </div>
+      </div>
+    </section>
+  );
+}
