@@ -29,3 +29,7 @@ upgrade-backup-*/
 *.before-global-trains
 node_modules/
 /services/movement-authority-service/tests/authority_flow.rs154=1
+*154=
+services/movement-authority-service/tests/authority_flow.rs154=
+node_modules/ 
+/services/movement-authority-service/tests/authority_flow.rs154=1 
